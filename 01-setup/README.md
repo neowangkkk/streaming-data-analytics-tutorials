@@ -12,7 +12,7 @@ Docker Desktop must be installed and running.
 ### 1. Go to your tutorial project folder
 Start Kafka (and any other services in the compose file):
 
-<<<docker compose up -d<<<
+```docker compose up -d```
 
 Confirm containers are running:
 
