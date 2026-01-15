@@ -9,15 +9,10 @@ In this tutorial you will start Kafka locally using Docker Compose, then verify 
 Docker Desktop must be installed and running.
 
 
-### 1. Go to the tutorial folder
-
-From the repository root:
-cd 01-setup
-
+### 1. Go to your tutorial project folder
 Start Kafka (and any other services in the compose file):
 
 **docker compose up -d**
-
 
 Confirm containers are running:
 
@@ -54,8 +49,6 @@ localhost:9092
 
    
 ### 4) Run the Python files in two terminals   
-Terminal A (Consumer)
-
   
 #### Open Terminal A
 
@@ -70,11 +63,8 @@ python consumer.py
   
 #### Terminal B (Producer)
 
-Go to this folder and activate your environment:
-
-cd 01-setup
+Go to your project folder and activate your environment:
 source .venv/bin/activate
-
 
 Run the producer:
 
