@@ -1,6 +1,3 @@
-# streaming-data-analytics-tutorials
-INF2214 Tutorial
-
 # Streaming Data Analytics Tutorials
 
 Welcome. This repository contains step-by-step tutorials for learning streaming data analytics with Kafka and related tools.
