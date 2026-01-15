@@ -16,21 +16,21 @@ Start Kafka (and any other services in the compose file):
 
 Confirm containers are running:
 
-docker compose ps  
+```docker compose ps``` 
 
 
 ### 2) Install Python package: confluent-kafka
 
 Create and activate a Python virtual environment (recommended):
 
-python3 -m venv .venv
-source .venv/bin/activate
+```python3 -m venv .venv
+source .venv/bin/activate```
 
 
 Install the package:
 
-pip install --upgrade pip
-pip install confluent-kafka
+```pip install --upgrade pip
+pip install confluent-kafka```
 
   
 ### 3) Create producer and consumer files (instructions only)
@@ -53,22 +53,22 @@ localhost:9092
 #### Open Terminal A
 
 Go to your project folder and activate your environment:
-source .venv/bin/activate  
+```source .venv/bin/activate```  
 
 Start the consumer:
 
-python consumer.py
+```python consumer.py```
 
 
   
 #### Terminal B (Producer)
 
 Go to your project folder and activate your environment:
-source .venv/bin/activate
+```source .venv/bin/activate```
 
 Run the producer:
 
-python producer.py
+```python producer.py```
 
 
 Stop the consumer with Ctrl + C.
