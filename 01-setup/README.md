@@ -3,7 +3,6 @@
 
 ## 3) `01-setup/README.md` (Kafka quickstart using Docker Compose)
 
-```md
 # 01 Setup: Run Kafka Locally with Docker Compose
 
 In this tutorial you will start Kafka locally using Docker Compose, then verify the broker is running.
@@ -17,8 +16,6 @@ If not, follow: `../docs/setup-docker.md`
 ## 1. Go to the tutorial folder
 
 From the repository root:
-
-```bash
 cd 01-setup
 
 Start Kafka (and any other services in the compose file):
@@ -30,7 +27,7 @@ Confirm containers are running:
 
 docker compose ps
 
-2) Install Python package: confluent-kafka
+### 2) Install Python package: confluent-kafka
 
 Create and activate a Python virtual environment (recommended):
 
