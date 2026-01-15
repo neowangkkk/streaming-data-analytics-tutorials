@@ -41,15 +41,3 @@ Wait until Docker Desktop shows a ready status (for example “Docker Desktop is
 
 ---
 
-## 3. Verify Docker works
-
-Open a terminal:
-- macOS: Terminal
-- Windows: PowerShell or Windows Terminal
-
-Run:
-
-```bash
-docker --version
-docker compose version
-
