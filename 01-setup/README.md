@@ -23,14 +23,14 @@ Confirm containers are running:
 
 Create and activate a Python virtual environment (recommended):
 
-```python3 -m venv .venv
-source .venv/bin/activate```
+```python3 -m venv .venv```
+```source .venv/bin/activate```
 
 
 Install the package:
 
-```pip install --upgrade pip
-pip install confluent-kafka```
+```pip install --upgrade pip```
+```pip install confluent-kafka```
 
   
 ### 3) Create producer and consumer files (instructions only)
