@@ -16,7 +16,7 @@ cd 01-setup
 
 Start Kafka (and any other services in the compose file):
 
-docker compose up -d
+**docker compose up -d**
 
 
 Confirm containers are running:
