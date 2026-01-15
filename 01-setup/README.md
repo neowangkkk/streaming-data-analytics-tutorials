@@ -21,7 +21,8 @@ Start Kafka (and any other services in the compose file):
 
 Confirm containers are running:
 
-docker compose ps
+docker compose ps  
+
 
 ### 2) Install Python package: confluent-kafka
 
@@ -36,6 +37,7 @@ Install the package:
 pip install --upgrade pip
 pip install confluent-kafka
 
+  
 ### 3) Create producer and consumer files (instructions only)
 
 In this 01-setup folder, create two files:
@@ -49,10 +51,12 @@ Copy the code provided in the next tutorial section (or from the course material
 Make sure both files use the correct broker address, usually:
 
 localhost:9092
+
    
 ### 4) Run the Python files in two terminals   
 Terminal A (Consumer)
 
+  
 ## Open Terminal A
 
 Go to this folder and activate your environment:
@@ -66,6 +70,7 @@ Start the consumer:
 python consumer.py
 
 
+  
 ## Terminal B (Producer)
 
 Open Terminal B
