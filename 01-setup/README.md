@@ -1,5 +1,3 @@
-
-
 # Kafka quickstart using Docker Compose
 
 
@@ -9,9 +7,7 @@ In this tutorial you will start Kafka locally using Docker Compose, then verify 
 
 ## Prerequisite
 Docker Desktop must be installed and running.
-If not, follow: `../docs/setup-docker.md`
 
----
 
 ### 1. Go to the tutorial folder
 
