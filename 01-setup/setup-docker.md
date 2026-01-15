@@ -7,7 +7,7 @@ This guide starts from zero. By the end, you will have Docker Desktop installed,
 ## 1. Install Docker Desktop
 
 ### macOS
-1. Download Docker Desktop for Mac from the official Docker website.
+1. Download Docker Desktop for Mac from the [official Docker website](https://www.docker.com/get-started/).
 2. Choose the correct installer:
    - Apple Silicon (M1/M2/M3) for newer Macs
    - Intel for older Macs
