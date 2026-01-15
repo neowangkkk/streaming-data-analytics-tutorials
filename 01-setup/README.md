@@ -1,8 +1,9 @@
 
 
-### Kafka quickstart using Docker Compose)
+# Kafka quickstart using Docker Compose
 
-# 01 Setup: Run Kafka Locally with Docker Compose
+
+### Setup: Run Kafka Locally with Docker Compose
 
 In this tutorial you will start Kafka locally using Docker Compose, then verify the broker is running.
 
