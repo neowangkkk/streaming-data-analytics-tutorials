@@ -57,13 +57,10 @@ localhost:9092
 Terminal A (Consumer)
 
   
-## Open Terminal A
+#### Open Terminal A
 
-Go to this folder and activate your environment:
-
-cd 01-setup
-source .venv/bin/activate
-
+Go to your project folder and activate your environment:
+source .venv/bin/activate  
 
 Start the consumer:
 
@@ -71,9 +68,7 @@ python consumer.py
 
 
   
-## Terminal B (Producer)
-
-Open Terminal B
+#### Terminal B (Producer)
 
 Go to this folder and activate your environment:
 
