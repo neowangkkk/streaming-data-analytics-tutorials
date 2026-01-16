@@ -82,6 +82,10 @@ Run this in the Terminal to enter the Container Shell:
 ```docker exec -it broker bash```  
 
 Use this to change the partition to 2  
+
+```kafka-topics --bootstrap-server localhost:9092 --alter --topic demo --partitions 2```   
+
+
 ```kafka-topics --bootstrap-server localhost:9092 --describe --topic demo```  
 
 Enter "exit" or Click "Ctrl" + "D" to go back to Terminal  
