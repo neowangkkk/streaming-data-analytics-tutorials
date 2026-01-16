@@ -9,7 +9,12 @@ In this tutorial you will start Kafka locally using Docker Compose, then verify 
 Docker Desktop must be installed and running.
 
 
-### 1. Go to your tutorial project folder
+### 1. Go to your tutorial project folder  
+Firstly, download the three files in 01-setup folder to your local project folder:  
+consumer.py  
+producer.py  
+docker-compose.yml  
+
 Start Kafka (and any other services in the compose file):
 
 ```docker compose up -d```
