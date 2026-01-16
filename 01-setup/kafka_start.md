@@ -74,3 +74,17 @@ Run the producer:
 
 
 Stop the consumer with Ctrl + C.
+
+
+### How to change the number of partitions  
+Run this in the Terminal to enter the Container Shell:
+```docker exec -it broker bash```  
+
+Use this to change the partition to 2  
+```kafka-topics --bootstrap-server localhost:9092 --describe --topic demo```  
+
+Enter "exit" or Click "Ctrl" + "D" to go back to Terminal  
+
+Run the producer script and you will see the partition number randomly assigned in consumer end.  
+
+   
