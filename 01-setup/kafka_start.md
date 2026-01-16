@@ -85,7 +85,7 @@ Use this to change the partition to 2
 
 ```kafka-topics --bootstrap-server localhost:9092 --alter --topic demo --partitions 2```   
 
-
+checking the number of partitions  
 ```kafka-topics --bootstrap-server localhost:9092 --describe --topic demo```  
 
 Enter "exit" or Click "Ctrl" + "D" to go back to Terminal  
