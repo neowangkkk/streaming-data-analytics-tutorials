@@ -41,3 +41,12 @@ Wait until Docker Desktop shows a ready status (for example “Docker Desktop is
 
 ---
 
+### How to stop it
+Stop one container "broker" only
+```docker stop broker```   
+Stop all
+```docker compose down```  
+Stop all and remove the data
+```docker compose down -v```
+
+
