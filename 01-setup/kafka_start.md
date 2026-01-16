@@ -77,7 +77,8 @@ Stop the consumer with Ctrl + C.
 
 
 ### How to change the number of partitions  
-Run this in the Terminal to enter the Container Shell:
+Run this in the Terminal to enter the Container Shell:  '
+
 ```docker exec -it broker bash```  
 
 Use this to change the partition to 2  
