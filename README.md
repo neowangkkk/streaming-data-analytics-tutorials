@@ -7,7 +7,8 @@ Welcome. This repository contains step-by-step tutorials for learning streaming 
 ### 0. Prerequisites
 You need Docker Desktop installed and running.
 
-- Full Docker setup guide: `docs/setup-docker.md`
+- Full Docker setup guide: `docs/setup-docker.md`  
+- Downloand and install [Python (3.10+)](https://www.python.org/downloads/) on your computer
 
 ### 1. Tutorial folders
 Start with the local environment setup:
