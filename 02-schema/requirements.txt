@@ -1,0 +1,8 @@
+confluent-kafka==2.13.0
+attrs
+httpx
+cachetools
+authlib
+orjson
+requests
+jsonschema
