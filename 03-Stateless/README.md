@@ -31,7 +31,7 @@ Tracing:
 
 Install:
 ```bash
-pip install confluent-kafka confluent-kafka[json] openpyxl
+pip install confluent-kafka 'confluent-kafka[json]' openpyxl
 ```
 
 ## 1) Start Kafka + Schema Registry
