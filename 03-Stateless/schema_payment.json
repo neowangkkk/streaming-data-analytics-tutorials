@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PaymentEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "event_id": {
+      "type": "string"
+    },
+    "card_id": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "merchant_id": {
+      "type": "string"
+    },
+    "merchant_category": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "number",
+      "minimum": 0
+    },
+    "currency": {
+      "type": "string"
+    },
+    "country": {
+      "type": "string"
+    },
+    "ip_country": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "POS",
+        "ECOM",
+        "ATM"
+      ]
+    },
+    "ts_utc": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_id",
+    "card_id",
+    "user_id",
+    "merchant_id",
+    "merchant_category",
+    "amount",
+    "currency",
+    "country",
+    "ip_country",
+    "channel",
+    "ts_utc"
+  ]
+}
