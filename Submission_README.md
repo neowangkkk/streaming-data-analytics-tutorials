@@ -1,6 +1,8 @@
 # Combine a project folder into one PDF (combined.md → HTML → Print)
 
 This README explains a simple workflow to bundle the contents of a project folder into a single PDF for submission or sharing.
+First of all, you can manually save each file into a PDF and combine all of them into one.  
+But you can also use this automatic method here.
 
 ## Overview
 
@@ -46,7 +48,8 @@ pandoc -v
 
 ## Step 1. Create `combined.md` in the project folder
 
-Run the following script in the project folder (the folder where your files are). It will generate `combined.md`.
+Open Mac Terminal or Windows Powershell. Use "cd.." to change to your project directory.  
+Copy and paste the following script directly in Terminal or Powershell. It will generate `combined.md`.
 
 This script:
 
@@ -183,35 +186,9 @@ You should now see `combined.md` in the project folder.
 
 ---
 
-## Step 2. Install LaTeX (optional)
-
-You only need LaTeX if you want Pandoc to generate PDF directly (for example `pandoc combined.md -o combined.pdf`).
-If you plan to do HTML → Print to PDF, you can skip this step.
-
-### Windows
-
-- MiKTeX, or TeX Live
-
-### macOS
-
-- MacTeX (large, full distribution), or
-- BasicTeX (smaller)
-
-Note: Even with LaTeX installed, direct PDF can fail if your content includes emojis or uncommon Unicode characters. HTML printing avoids those issues.
-
----
-
-## Step 3. Create `combined.html` with Pandoc
+## Step 2. Create `combined.html` with Pandoc
 
 Run this in the project folder:
-
-```bash
-pandoc combined.md -s --metadata title="Project Files" -o combined.html
-```
-
-### Recommended: embed images into the HTML
-
-If you want the HTML to be self-contained (images included inside the HTML file), use:
 
 ```bash
 pandoc combined.md -s --metadata title="Project Files" --embed-resources -o combined.html
@@ -219,7 +196,7 @@ pandoc combined.md -s --metadata title="Project Files" --embed-resources -o comb
 
 ---
 
-## Step 4. Print and save as a PDF
+## Step 3. Print and save as a PDF
 
 Open the HTML file:
 
@@ -239,20 +216,9 @@ Then in the browser:
 
 ---
 
-## Optional: direct PDF (requires LaTeX)
+## Note: why we do not suggest you directly output PDF from the folder
 
-If LaTeX is installed and you still want to try direct PDF:
+First, you will need to install LaTex. Second, even if you have LaTex, it still may fail due to Unicode (for example emojis like ✅).
+Generating HTML first and Print→ Save as PDF is more reliable.
 
-```bash
-pandoc combined.md -o combined.pdf
-```
 
-If it fails due to Unicode (for example emojis like ✅), use the HTML printing workflow instead.
-
----
-
-## Tips
-
-- If the combined output is too long, limit which extensions are included in the script.
-- If you want a specific order, edit the script to sort files differently or use a custom list.
-- Avoid including secrets (API keys, tokens) in any exported document.
