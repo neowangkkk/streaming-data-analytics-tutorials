@@ -1,8 +1,8 @@
 # Combine a project folder into one PDF (combined.md → HTML → Print)
 
 This README explains a simple workflow to bundle the contents of a project folder into a single PDF for submission or sharing.
-First of all, you can manually save each file into a PDF and combine all of them into one.  
-But you can also use this automatic method here.  
+First of all, you can manually save each file into a PDF and combine all of them into one. But you can also use this automatic method here.  
+
 Before running this procedure, you should have saved two snapshots of output windows from Producer and Consumer to this project folder.
 
 ## Overview
