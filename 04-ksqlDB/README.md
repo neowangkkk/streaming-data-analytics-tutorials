@@ -54,7 +54,7 @@ docker image prune -f
 ## 2) Docker Compose file
 This tutorial expects a `docker-compose.yml` like the one below.
 
-✅ Notes:
+Notes:
 - Uses a named volume `kafka_data` (safe persistence, easy reset with `down -v`)
 - Sets **two listeners**:
   - `kafka:29092` (inside Docker network, used by ksqlDB and docker exec commands)
@@ -356,7 +356,7 @@ docker compose run --rm -e JMX_PORT= -e JAVA_TOOL_OPTIONS="-Dcom.sun.management.
 
 ---
 
-## What students should remember (plain language)
+## What you should remember (plain language)
 - Kafka is like a **mailroom** with many **mailboxes** (topics).
 - Producers **drop messages** into a mailbox.
 - Consumers **read messages** from a mailbox.
