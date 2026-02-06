@@ -51,75 +51,18 @@ docker image prune -f
 
 ---
 
-## 2) Docker Compose file
-This tutorial expects a `docker-compose.yml` like the one below.
+## 2) Docker Compose file 
+Create a project folder in your computer e.g., "04-ksqlDB", and copy the files from this repo to your project folder.  
+
+This tutorial expects a `docker-compose.yml` in your folder.
 
 Notes:
 - Uses a named volume `kafka_data` (safe persistence, easy reset with `down -v`)
 - Sets **two listeners**:
   - `kafka:29092` (inside Docker network, used by ksqlDB and docker exec commands)
   - `localhost:9092` (your host machine, optional for host-based tools)
-- Pre-generates a stable `CLUSTER_ID` so KRaft can format storage reliably.
+- Pre-generates a stable `CLUSTER_ID` so KRaft can format storage reliably.  
 
-Create/replace your `docker-compose.yml` with:
-
-```yaml
-services:
-  kafka:
-    image: confluentinc/cp-kafka:7.6.1
-    container_name: kafka
-    hostname: kafka
-    ports:
-      - "9092:9092"
-    environment:
-      # KRaft single-node settings
-      KAFKA_NODE_ID: "1"
-      KAFKA_PROCESS_ROLES: "broker,controller"
-      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT"
-      KAFKA_LISTENERS: "PLAINTEXT://kafka:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://kafka:29093"
-      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092"
-      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
-
-      # Single broker demo settings
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
-
-      # Storage formatting for KRaft
-      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qg"
-    volumes:
-      - kafka_data:/var/lib/kafka/data
-
-  ksqldb-server:
-    image: confluentinc/cp-ksqldb-server:7.6.1
-    container_name: ksqldb-server
-    hostname: ksqldb-server
-    depends_on:
-      - kafka
-    ports:
-      - "8088:8088"
-    environment:
-      KSQL_BOOTSTRAP_SERVERS: "kafka:29092"
-      KSQL_LISTENERS: "http://0.0.0.0:8088"
-      KSQL_KSQL_SERVICE_ID: "ksql_"
-      KSQL_KSQL_STREAMS_AUTO_OFFSET_RESET: "earliest"
-      # Optional: disable Confluent support metrics noise in logs
-      CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
-
-  ksqldb-cli:
-    image: confluentinc/cp-ksqldb-cli:7.6.1
-    container_name: ksqldb-cli
-    depends_on:
-      - ksqldb-server
-    entrypoint: /bin/sh
-    tty: true
-
-volumes:
-  kafka_data:
-```
 
 ### Apple Silicon (M1/M2/M3) note
 Docker may warn about platform mismatch for some images. If you want to force amd64 explicitly, add this under each service:
