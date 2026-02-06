@@ -1,0 +1,54 @@
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.9.1
+    container_name: kafka
+    ports:
+      - "9092:9092"   # host access (your laptop)
+    environment:
+      # KRaft single-node Kafka (no Zookeeper)
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+
+      # Two doors into Kafka:
+      # - kafka:29092 is for other containers
+      # - localhost:9092 is for your laptop
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://kafka:29093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qg"
+
+      # Single-node friendly defaults
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  ksqldb-server:
+    image: confluentinc/cp-ksqldb-server:7.9.1
+    container_name: ksqldb-server
+    depends_on:
+      - kafka
+    ports:
+      - "8088:8088"
+    environment:
+      KSQL_BOOTSTRAP_SERVERS: kafka:29092
+      KSQL_LISTENERS: http://0.0.0.0:8088
+      CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
+
+  ksqldb-cli:
+    image: confluentinc/cp-ksqldb-cli:7.9.1
+    container_name: ksqldb-cli
+    depends_on:
+      - ksqldb-server
+    entrypoint: /bin/sh
+    tty: true
+
+volumes:
+  kafka_data:
