@@ -144,7 +144,7 @@ kafka-connect-tutorial/
 - **Mode**: Incremental (tracks new users)
 - **Users**: 15 sample users across 5 cities
 
-## 🎯 Key Features
+## Key Features
 
 ✅ **All cities match** across all three data sources
 ✅ **Real US weather data** from official NWS API
@@ -152,7 +152,7 @@ kafka-connect-tutorial/
 ✅ **Complete documentation** with troubleshooting
 ✅ **Automated setup** script included
 
-## 📚 Next Steps
+## Next Steps
 
 1. Complete [QUICKSTART.md](QUICKSTART.md)
 2. Experiment with ksqlDB queries
@@ -160,6 +160,6 @@ kafka-connect-tutorial/
 4. Build aggregation queries
 5. Create a visualization dashboard
 
-## 📝 License
+## License
 
 MIT License - Free for educational use
