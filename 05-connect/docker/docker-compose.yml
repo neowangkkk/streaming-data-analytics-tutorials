@@ -62,8 +62,9 @@ services:
       - bash
       - -c
       - |
+        echo "Installing JDBC connector..."
         confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.7.4
-        confluent-hub install --no-prompt castorm/kafka-connect-http:0.8.11
+        echo "Starting Kafka Connect..."
         /etc/confluent/docker/run
 
   postgres:

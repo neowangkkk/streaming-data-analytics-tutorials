@@ -6,13 +6,9 @@
     "connection.url": "jdbc:postgresql://postgres:5432/envdb",
     "connection.user": "envuser",
     "connection.password": "envpass",
-    "mode": "incrementing",
-    "incrementing.column.name": "user_id",
     "table.whitelist": "users",
+    "mode": "bulk",
     "topic.prefix": "postgres-",
-    "poll.interval.ms": "10000",
-    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
-    "value.converter.schemas.enable": "false",
-    "key.converter": "org.apache.kafka.connect.storage.StringConverter"
+    "poll.interval.ms": "5000"
   }
 }

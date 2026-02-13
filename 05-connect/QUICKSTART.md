@@ -1,440 +1,558 @@
-# QUICKSTART GUIDE
+# QUICKSTART GUIDE - UPDATED
+Complete step-by-step walkthrough for the Multi-Source Data Integration Tutorial
 
-Complete step-by-step instructions to run the ksqlDB multi-source integration tutorial.
+## ⚡ Prerequisites
 
-## Prerequisites
-
-- Docker and Docker Compose installed
+- Docker & Docker Compose installed
 - Python 3.8+ installed
 - At least 4GB RAM available
-- Internet connection (for Weather API)
+- Internet connection (for NWS Weather API)
 
-## Step 1: Start Infrastructure
+---
+
+## 📦 Step 1: Start Infrastructure
 
 ```bash
-# Navigate to the tutorial directory
-cd ksqldb-multi-source-tutorial
+# Navigate to tutorial directory
+cd kafka-connect-tutorial
 
 # Start all services
 docker-compose -f docker/docker-compose.yml up -d
-
-# Verify services are running
-docker-compose -f docker/docker-compose.yml ps
 ```
 
-**Wait 2-3 minutes** for all services to fully start.
+**Wait 2-3 minutes** for services to fully initialize.
 
-Check Kafka Connect is ready:
+### Verify Services
+
 ```bash
-curl http://localhost:8083/
+# Check all containers are running
+docker-compose -f docker/docker-compose.yml ps
+
+# All services should show "Up"
 ```
 
-You should see: `{"version":"7.6.0",...}`
+---
 
-## Step 2: Initialize PostgreSQL Database
+## 🗄️ Step 2: Initialize PostgreSQL Database
 
-Load sample user data into PostgreSQL:
+Load sample user data:
 
 ```bash
 docker exec -i postgres psql -U envuser -d envdb < data/users.sql
 ```
 
-Verify users were created:
+### Verify Data
+
 ```bash
-docker exec -it postgres psql -U envuser -d envdb -c "SELECT * FROM users;"
+docker exec -it postgres psql -U envuser -d envdb -c \
+  "SELECT city, state, COUNT(*) as users FROM users GROUP BY city, state ORDER BY city;"
 ```
 
-You should see 10 users from different cities.
+**Expected:** 15 users across 5 cities (New York, Los Angeles, Chicago, San Francisco, Miami)
 
-## Step 3: Start IoT Sensor Simulator
+---
 
-Install Python dependencies:
+## 🐍 Step 3: Install Python Dependencies
+
 ```bash
 pip3 install -r producers/requirements.txt
 ```
 
-Start the simulator (in a separate terminal):
+---
+
+## 🌦️ Step 4: Start Data Producers
+
+### Terminal 1: NWS Weather Producer
+
+```bash
+python3 producers/nws_weather_producer.py
+```
+
+**Expected output:**
+```
+============================================================
+  NWS Weather.gov API Producer
+============================================================
+Kafka:  localhost:9092
+Topic:  weather-data
+...
+  New York        |  45°F ( 7.2°C) | Partly Cloudy
+✓ New York: weather-data [0] @ 0
+```
+
+**Keep this running!**
+
+---
+
+### Terminal 2: IoT Sensor Simulator
+
 ```bash
 python3 producers/iot_sensor_simulator.py
 ```
 
-You should see output like:
+**Expected output:**
 ```
-=== IoT Sensor Simulator ===
-Kafka: localhost:9092
-Topic: iot-sensors
-Sensors: 5
-
-Starting data generation...
-
-✓ Produced to iot-sensors [0] @ offset 0
-✓ Produced to iot-sensors [0] @ offset 1
+============================================================
+  IoT Environmental Sensor Simulator
+============================================================
 ...
+  New York        |  47.2°F | 68.5% | AQI:  48 (Good)
+✓ SENSOR_NY_001: iot-sensors [0] @ 0
 ```
 
-**Keep this running** in the background.
+**Keep this running!**
 
-## Step 4: Create Kafka Connect Connectors
+---
 
-### Weather API Connector
+### 💡 Or Run Both in Background
+
+```bash
+python3 producers/nws_weather_producer.py > weather.log 2>&1 &
+python3 producers/iot_sensor_simulator.py > iot.log 2>&1 &
+
+# View logs if needed
+tail -f weather.log
+tail -f iot.log
+```
+
+---
+
+## 🔌 Step 5: Create JDBC Source Connector
+
+**IMPORTANT:** Use **bulk mode** to ensure all existing users are loaded:
 
 ```bash
 curl -X POST http://localhost:8083/connectors \
   -H "Content-Type: application/json" \
-  -d @connectors/weather-source.json
+  -d '{
+  "name": "postgres-users-source",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+    "tasks.max": "1",
+    "connection.url": "jdbc:postgresql://postgres:5432/envdb",
+    "connection.user": "envuser",
+    "connection.password": "envpass",
+    "table.whitelist": "users",
+    "mode": "bulk",
+    "topic.prefix": "postgres-",
+    "poll.interval.ms": "5000"
+  }
+}'
 ```
 
-Expected response: `{"name":"weather-api-source",...}`
+**Why bulk mode?** Incrementing mode only captures NEW users added after the connector starts. Bulk mode loads all existing users.
 
-### PostgreSQL Connector
+### Verify Connector
 
 ```bash
-curl -X POST http://localhost:8083/connectors \
-  -H "Content-Type: application/json" \
-  -d @connectors/postgres-source.json
+# Check status (wait 10 seconds first)
+sleep 10
+curl http://localhost:8083/connectors/postgres-users-source/status | jq
+
+# Should show "state": "RUNNING"
 ```
 
-Expected response: `{"name":"postgres-users-source",...}`
+---
 
-### Verify Connectors
+## ✅ Step 6: Verify Kafka Topics & Data
 
-```bash
-# List all connectors
-curl http://localhost:8083/connectors
-
-# Check connector status
-curl http://localhost:8083/connectors/weather-api-source/status
-curl http://localhost:8083/connectors/postgres-users-source/status
-```
-
-Both should show `"state":"RUNNING"`.
-
-## Step 5: Verify Kafka Topics
-
-Check that data is flowing into Kafka topics:
+### Check Topics Exist
 
 ```bash
-# List all topics
 docker exec kafka kafka-topics \
   --bootstrap-server localhost:9092 \
   --list
 ```
 
-You should see:
-- `iot-sensors`
+**You should see:**
 - `weather-data`
+- `iot-sensors`
 - `postgres-users`
 
-View sample messages:
-```bash
-# IoT sensor data
-docker exec kafka kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
-  --topic iot-sensors \
-  --from-beginning \
-  --max-messages 3
+---
 
-# Weather data
+### Verify Data in Each Topic
+
+**Weather data:**
+```bash
 docker exec kafka kafka-console-consumer \
   --bootstrap-server localhost:9092 \
   --topic weather-data \
   --from-beginning \
-  --max-messages 1
+  --max-messages 2
+```
 
-# User data
+**IoT sensor data:**
+```bash
+docker exec kafka kafka-console-consumer \
+  --bootstrap-server localhost:9092 \
+  --topic iot-sensors \
+  --from-beginning \
+  --max-messages 2
+```
+
+**User data (CRITICAL - verify this works!):**
+```bash
 docker exec kafka kafka-console-consumer \
   --bootstrap-server localhost:9092 \
   --topic postgres-users \
   --from-beginning \
-  --max-messages 5
+  --max-messages 3
 ```
 
-## Step 6: Create ksqlDB Streams and Tables
+**Expected user output:**
+```json
+{"user_id":1,"username":"alice_smith","email":"alice@example.com","city":"New York",...}
+```
 
-Access the ksqlDB CLI:
+**If you see nothing for postgres-users**, the connector isn't working. See troubleshooting below.
+
+---
+
+## 🎯 Step 7: Create ksqlDB Streams & Tables
+
+Access ksqlDB CLI:
+
 ```bash
 docker exec -it ksqldb-cli ksql http://ksqldb-server:8088
 ```
 
-You should see:
-```
-                  ===========================================
-                  =       _              _ ____  ____       =
-                  =      | | _____  __ _| |  _ \| __ )      =
-                  =      | |/ / __|/ _` | | | | |  _ \      =
-                  =      |   <\__ \ (_| | | |_| | |_) |     =
-                  =      |_|\_\___/\__, |_|____/|____/      =
-                  =                   |_|                   =
-                  =        The Database purpose-built       =
-                  =        for stream processing apps       =
-                  ===========================================
+### Create All Streams
 
-ksql>
-```
-
-### Run Stream Definitions
-
-Copy and paste the contents of `ksqldb/streams.sql` into the ksqlDB CLI, or run:
+Copy/paste this entire block:
 
 ```sql
--- Set offset
 SET 'auto.offset.reset' = 'earliest';
 
--- Create IoT sensor stream
-CREATE STREAM iot_sensors_raw (
-    sensor_id VARCHAR,
-    location VARCHAR,
+-- Weather Stream
+CREATE STREAM weather_stream (
+    city VARCHAR,
+    state VARCHAR,
     latitude DOUBLE,
     longitude DOUBLE,
     timestamp VARCHAR,
-    temperature_celsius DOUBLE,
-    humidity_percent DOUBLE,
-    pressure_hpa DOUBLE,
-    air_quality_index INT
-) WITH (
-    KAFKA_TOPIC='iot-sensors',
-    VALUE_FORMAT='JSON'
-);
-
--- Create cleaned sensor stream
-CREATE STREAM iot_sensors_stream WITH (
-    KAFKA_TOPIC='iot-sensors-cleaned',
-    VALUE_FORMAT='JSON'
-) AS SELECT
-    sensor_id,
-    location,
-    temperature_celsius,
-    humidity_percent,
-    pressure_hpa,
-    air_quality_index
-FROM iot_sensors_raw
-EMIT CHANGES;
-
--- Create weather stream  
-CREATE STREAM weather_raw (
-    latitude DOUBLE,
-    longitude DOUBLE,
-    current STRUCT<
-        temperature_2m DOUBLE,
-        relative_humidity_2m INT,
-        wind_speed_10m DOUBLE,
-        pressure_msl DOUBLE
-    >
+    temperature_f INT,
+    temperature_c DOUBLE,
+    temperature_unit VARCHAR,
+    wind_speed VARCHAR,
+    wind_direction VARCHAR,
+    short_forecast VARCHAR,
+    detailed_forecast VARCHAR,
+    is_daytime BOOLEAN,
+    period_name VARCHAR,
+    icon VARCHAR
 ) WITH (
     KAFKA_TOPIC='weather-data',
     VALUE_FORMAT='JSON'
 );
 
--- Create users stream
+-- IoT Sensor Stream
+CREATE STREAM iot_sensors_stream (
+    sensor_id VARCHAR,
+    location VARCHAR,
+    state VARCHAR,
+    latitude DOUBLE,
+    longitude DOUBLE,
+    timestamp VARCHAR,
+    temperature_celsius DOUBLE,
+    temperature_fahrenheit DOUBLE,
+    humidity_percent DOUBLE,
+    pressure_hpa DOUBLE,
+    air_quality_index INT,
+    air_quality_status VARCHAR
+) WITH (
+    KAFKA_TOPIC='iot-sensors',
+    VALUE_FORMAT='JSON'
+);
+
+-- Users Stream
 CREATE STREAM users_stream (
     user_id INT,
     username VARCHAR,
     email VARCHAR,
     city VARCHAR,
+    state VARCHAR,
     latitude DOUBLE,
-    longitude DOUBLE
+    longitude DOUBLE,
+    created_at BIGINT
 ) WITH (
     KAFKA_TOPIC='postgres-users',
     VALUE_FORMAT='JSON'
 );
 
--- Create users table for lookups
-CREATE TABLE users_table WITH (
+-- Users Table (CITY as primary key for joins!)
+CREATE TABLE users_table 
+WITH (
     KAFKA_TOPIC='users-table',
     VALUE_FORMAT='JSON'
 ) AS SELECT
-    user_id,
+    city,
+    LATEST_BY_OFFSET(user_id) as user_id,
     LATEST_BY_OFFSET(username) as username,
     LATEST_BY_OFFSET(email) as email,
-    LATEST_BY_OFFSET(city) as city,
+    LATEST_BY_OFFSET(state) as state,
     LATEST_BY_OFFSET(latitude) as latitude,
     LATEST_BY_OFFSET(longitude) as longitude
 FROM users_stream
-GROUP BY user_id
+GROUP BY city
 EMIT CHANGES;
 ```
 
-### Verify Data is Flowing
+---
+
+### Verify Streams Created
 
 ```sql
--- Check IoT sensors
-SELECT * FROM iot_sensors_stream EMIT CHANGES LIMIT 5;
-
--- Check users
-SELECT * FROM users_table;
-
--- Press Ctrl+C to stop streaming queries
+SHOW STREAMS;
+SHOW TABLES;
 ```
 
-## Step 7: Run Stateless Processing Queries
+**Expected:**
+```
+Stream Name         | Kafka Topic
+---------------------------------------
+WEATHER_STREAM      | weather-data
+IOT_SENSORS_STREAM  | iot-sensors
+USERS_STREAM        | postgres-users
 
-### Query 1: Filter High Temperature Sensors
+Table Name    | Kafka Topic
+--------------------------------
+USERS_TABLE   | users-table
+```
+
+---
+
+### Test Data Flow
+
+```sql
+-- View weather (Ctrl+C to stop)
+SELECT city, temperature_f, short_forecast 
+FROM weather_stream 
+EMIT CHANGES 
+LIMIT 5;
+
+-- View sensors
+SELECT location, temperature_fahrenheit, air_quality_index 
+FROM iot_sensors_stream 
+EMIT CHANGES 
+LIMIT 5;
+
+-- View users table (should show 5 cities)
+SELECT * FROM users_table;
+```
+
+**IMPORTANT:** `users_table` should show **5 rows** (one per city). If empty, see troubleshooting.
+
+---
+
+## 🔍 Step 8: Run Analysis Queries
+
+### Query 1: Join Users with Local Sensors
 
 ```sql
 SELECT 
-    sensor_id,
-    location,
-    temperature_celsius,
-    humidity_percent
-FROM iot_sensors_stream
-WHERE temperature_celsius > 20
+    u.username,
+    u.email,
+    u.city,
+    s.temperature_fahrenheit,
+    s.air_quality_index,
+    s.air_quality_status
+FROM iot_sensors_stream s
+INNER JOIN users_table u ON s.location = u.city
 EMIT CHANGES
 LIMIT 10;
 ```
 
-### Query 2: Join Users with Their City Sensors
+**Expected output:**
+```
++----------+-------------------+----------+-------------+------+----------+
+|USERNAME  |EMAIL              |CITY      |TEMPERATURE_ |AIR_  |AIR_QUALI |
++-----------+------------------+----------+-------------+------+----------+
+|alice_smi |alice@example.com  |New York  |47.2         |48    |Good      |
+|diana_gar |diana@example.com  |Los Ange..|75.8         |92    |Moderate  |
+```
+
+---
+
+### Query 2: Complete Environmental Dashboard
+
+Combines all 3 data sources:
 
 ```sql
-CREATE STREAM user_local_sensors WITH (
-    KAFKA_TOPIC='user-local-sensors',
+CREATE STREAM complete_dashboard WITH (
+    KAFKA_TOPIC='complete-dashboard',
     VALUE_FORMAT='JSON'
 ) AS SELECT
     u.user_id,
     u.username,
     u.city,
-    s.sensor_id,
-    s.temperature_celsius,
-    s.humidity_percent,
-    s.air_quality_index
+    s.temperature_fahrenheit as sensor_temp,
+    s.air_quality_index,
+    w.temperature_f as forecast_temp,
+    w.short_forecast
 FROM iot_sensors_stream s
 INNER JOIN users_table u ON s.location = u.city
+INNER JOIN weather_stream w WITHIN 1 HOUR ON w.city = u.city
 EMIT CHANGES;
 
 -- View results
-SELECT * FROM user_local_sensors EMIT CHANGES LIMIT 10;
+SELECT * FROM complete_dashboard EMIT CHANGES LIMIT 10;
 ```
 
-### Query 3: Environmental Quality Alerts
+---
+
+### Query 3: Environmental Alerts
 
 ```sql
-SELECT 
-    sensor_id,
-    location,
-    temperature_celsius,
-    air_quality_index,
-    CASE
-        WHEN temperature_celsius > 30 THEN 'HEAT ALERT'
-        WHEN air_quality_index > 150 THEN 'AIR QUALITY ALERT'
-        ELSE 'NORMAL'
-    END as alert_status
-FROM iot_sensors_stream
-WHERE temperature_celsius > 30 OR air_quality_index > 100
-EMIT CHANGES
-LIMIT 5;
-```
-
-### Query 4: Transform Data (Celsius to Fahrenheit)
-
-```sql
-SELECT 
-    sensor_id,
-    location,
-    temperature_celsius,
-    (temperature_celsius * 9/5) + 32 as temperature_fahrenheit,
-    humidity_percent
-FROM iot_sensors_stream
-EMIT CHANGES
-LIMIT 5;
-```
-
-## Step 8: Complete Dashboard Query
-
-Combine all three data sources:
-
-```sql
-CREATE STREAM user_dashboard WITH (
-    KAFKA_TOPIC='user-dashboard',
-    VALUE_FORMAT='JSON'
-) AS SELECT
-    u.user_id,
+SELECT
     u.username,
     u.email,
     u.city,
-    s.sensor_id,
-    s.temperature_celsius,
-    s.humidity_percent,
     s.air_quality_index,
-    CASE 
-        WHEN s.air_quality_index < 50 THEN 'Good'
-        WHEN s.air_quality_index < 100 THEN 'Moderate'
-        ELSE 'Unhealthy'
-    END as air_quality_status
+    s.temperature_fahrenheit,
+    CASE
+        WHEN s.air_quality_index > 150 THEN 'UNHEALTHY AIR - Stay indoors'
+        WHEN s.temperature_fahrenheit > 95 THEN 'EXTREME HEAT - Stay hydrated'
+        WHEN s.temperature_fahrenheit < 32 THEN 'FREEZE WARNING'
+        ELSE 'NORMAL CONDITIONS'
+    END as alert_message
 FROM iot_sensors_stream s
 INNER JOIN users_table u ON s.location = u.city
+WHERE s.air_quality_index > 100 
+   OR s.temperature_fahrenheit > 90 
+   OR s.temperature_fahrenheit < 35
 EMIT CHANGES;
-
--- View dashboard
-SELECT * FROM user_dashboard EMIT CHANGES;
 ```
 
-You should see output like:
-```
-+--------+------------+-------------------+----------+-----------+---------------+-------------+-------------+------------------+
-|USER_ID |USERNAME    |EMAIL              |CITY      |SENSOR_ID  |TEMPERATURE_   |HUMIDITY_    |AIR_QUALITY_ |AIR_QUALITY_      |
-|        |            |                   |          |           |CELSIUS        |PERCENT      |INDEX        |STATUS            |
-+--------+------------+-------------------+----------+-----------+---------------+-------------+-------------+------------------+
-|1       |alice_smith |alice@example.com  |Toronto   |SENSOR_001 |18.45          |62.3         |45           |Good              |
-|6       |fiona_chen  |fiona@example.com  |Toronto   |SENSOR_001 |18.45          |62.3         |45           |Good              |
-...
-```
+More queries available in `ksqldb/02_queries.sql`!
 
-## Troubleshooting
+---
 
-### Connectors not starting
+## 🛠️ Troubleshooting
+
+### Issue: `postgres-users` Topic is Empty
+
+**Cause:** Incrementing mode only captures NEW users, not existing ones.
+
+**Solution:** Use bulk mode:
 
 ```bash
-# View connector logs
-docker logs kafka-connect
+curl -X DELETE http://localhost:8083/connectors/postgres-users-source
 
-# Restart a connector
-curl -X POST http://localhost:8083/connectors/weather-api-source/restart
+curl -X POST http://localhost:8083/connectors -H "Content-Type: application/json" -d '{
+  "name": "postgres-users-source",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+    "tasks.max": "1",
+    "connection.url": "jdbc:postgresql://postgres:5432/envdb",
+    "connection.user": "envuser",
+    "connection.password": "envpass",
+    "table.whitelist": "users",
+    "mode": "bulk",
+    "topic.prefix": "postgres-",
+    "poll.interval.ms": "5000"
+  }
+}'
+
+sleep 10
+
+# Verify
+docker exec kafka kafka-console-consumer \
+  --bootstrap-server localhost:9092 \
+  --topic postgres-users \
+  --from-beginning \
+  --max-messages 3
 ```
 
-### No data in topics
+---
+
+### Issue: Join Query Hangs with No Results
+
+**Cause:** Producers aren't running.
+
+**Solution:**
 
 ```bash
-# Check if simulator is still running
-ps aux | grep iot_sensor
+# Check if running
+ps aux | grep python3
 
-# Restart it if needed
+# Start them
+python3 producers/nws_weather_producer.py &
 python3 producers/iot_sensor_simulator.py &
 ```
 
-### ksqlDB errors
+---
 
-```bash
-# Restart ksqlDB server
-docker restart ksqldb-server
+### Issue: ksqlDB Stream-Table Join Error
 
-# Wait 30 seconds, then reconnect
-docker exec -it ksqldb-cli ksql http://ksqldb-server:8088
+**Error:** `stream-table joins require to join on the table's primary key`
+
+**Cause:** Trying to join on non-primary-key field.
+
+**Solution:** Our `users_table` uses `city` as primary key, so join on city:
+```sql
+FROM iot_sensors_stream s
+INNER JOIN users_table u ON s.location = u.city
 ```
 
-## Cleanup
+---
+
+### Issue: Cannot Drop Stream (Table Depends on It)
+
+**Solution:** Drop table first, then stream:
+
+```sql
+DROP TABLE users_table DELETE TOPIC;
+DROP STREAM users_stream DELETE TOPIC;
+-- Then recreate
+```
+
+---
+
+### Issue: Connector Not Running
 
 ```bash
-# Stop simulator
+# Check logs
+docker logs kafka-connect --tail 50
+
+# Check status
+curl http://localhost:8083/connectors/postgres-users-source/status
+
+# Restart if needed
+curl -X POST http://localhost:8083/connectors/postgres-users-source/restart
+```
+
+---
+
+## 🧹 Cleanup
+
+```bash
+# Stop producers
+pkill -f nws_weather_producer
 pkill -f iot_sensor_simulator
 
-# Stop all services
+# Stop and remove all containers & data
 docker-compose -f docker/docker-compose.yml down -v
-
-# This removes all data and volumes
 ```
 
-## Next Steps
+---
 
-1. Explore more queries in `ksqldb/queries.sql`
-2. Add new sensors with different locations
-3. Create aggregation queries with windows
-4. Export processed streams to external systems
+## 🎓 What You've Accomplished
 
-## Summary
+✅ Set up complete streaming infrastructure (Kafka, Connect, ksqlDB, PostgreSQL)  
+✅ Integrated 3 data sources with matching cities  
+✅ Created real-time data pipelines with Python producers  
+✅ Configured Kafka Connect JDBC Source (bulk mode)  
+✅ Built ksqlDB streams and tables with proper primary keys  
+✅ Performed stream-table joins on city  
+✅ Created real-time environmental monitoring dashboard  
 
-You've successfully:
-✅ Connected to a REST API (Weather)
-✅ Created a custom Python producer (IoT sensors)
-✅ Imported database data via JDBC (PostgreSQL)
-✅ Created ksqlDB streams and tables
-✅ Performed stateless transformations and joins
-✅ Built a real-time environmental monitoring dashboard!
+## 🚀 Next Steps
+
+1. Explore more queries in `ksqldb/02_queries.sql`
+2. Add new cities to all three data sources
+3. Create windowed aggregations (5-minute averages)
+4. Build a visualization dashboard (Grafana)
+5. Export processed streams to external systems
+
+**Congratulations!** 🎉 You've built a complete multi-source streaming data pipeline!

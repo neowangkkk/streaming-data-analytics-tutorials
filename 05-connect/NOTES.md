@@ -1,289 +1,332 @@
-# Tutorial Notes & Tips
+# Advanced Notes & Tips
 
-## Architecture Overview
-
-This tutorial demonstrates a complete streaming data pipeline with three distinct data sources:
-
-### Data Sources
-
-1. **Open-Meteo Weather API** (HTTP Source Connector)
-   - Real-time weather data
-   - Polls API every 60 seconds
-   - No authentication required
-   - Data includes: temperature, humidity, wind speed, pressure
-
-2. **IoT Sensor Simulator** (Python Producer)
-   - Simulates 5 sensors in different cities
-   - Generates readings every 5 seconds
-   - Matches cities with user data for easy joins
-   - Data includes: temperature, humidity, pressure, air quality
-
-3. **PostgreSQL Database** (JDBC Source Connector)
-   - User profiles with location preferences
-   - Incrementing mode (tracks new users)
-   - 10 sample users across multiple cities
-   - Data includes: user_id, username, email, city, coordinates
+## 🎯 Architecture Details
 
 ### Data Flow
-
 ```
-External Sources → Kafka Connect → Kafka Topics → ksqlDB → Processed Streams
+NWS API → Python Producer → Kafka Topic (weather-data)
+Sensors → Python Producer → Kafka Topic (iot-sensors)
+PostgreSQL → JDBC Connector → Kafka Topic (postgres-users)
+                                    ↓
+                            ksqlDB Processing
+                                    ↓
+                    Enriched Streams & Dashboards
 ```
 
-## Key Concepts Demonstrated
+### City Matching Strategy
+All three data sources use the **exact same city names**:
+- New York
+- Los Angeles
+- Chicago
+- San Francisco
+- Miami
 
-### 1. Connector Configuration
+This enables clean joins in ksqlDB without transformation.
 
-**HTTP Connector** - For REST APIs
-- Automatic polling at intervals
-- JSON response parsing
-- No code required
+## 🔧 Customization
 
-**JDBC Connector** - For databases
-- Incremental mode using auto-increment column
-- Automatic schema detection
-- Change data capture capability
+### Adding New Cities
 
-**Python Producer** - For custom sources
-- Full control over data format
-- Custom business logic
-- Real-time generation
+**1. Add to NWS Weather Producer** (`producers/nws_weather_producer.py`):
+```python
+CITIES = [
+    {'name': 'Seattle', 'state': 'WA', 'lat': 47.6062, 'lon': -122.3321},
+    # ... existing cities
+]
+```
 
-### 2. ksqlDB Stream Processing
+**2. Add to IoT Sensor Simulator** (`producers/iot_sensor_simulator.py`):
+```python
+SENSORS = [
+    {
+        'sensor_id': 'SENSOR_SEA_001',
+        'location': 'Seattle',
+        'state': 'WA',
+        'latitude': 47.6062,
+        'longitude': -122.3321,
+        'base_temp': 52,
+        'base_humidity': 75,
+        'base_pressure': 1013,
+        'base_aqi': 35
+    },
+    # ... existing sensors
+]
+```
 
-**Streams** - Unbounded, append-only sequences
-- `iot_sensors_stream` - Continuous sensor readings
-- `weather_stream` - Periodic weather updates
-
-**Tables** - Mutable, current state
-- `users_table` - Latest user information
-- Key-value lookups
-
-**Joins** - Combining data sources
-- Stream-Table join: sensors with users
-- Enrichment pattern
-
-## Common Patterns
-
-### Data Cleansing
+**3. Add Users to Database** (`data/users.sql`):
 ```sql
-CREATE STREAM cleaned AS SELECT
-    TRIM(field1) as field1,
-    CAST(field2 AS DOUBLE) as field2
-FROM raw_stream;
+INSERT INTO users (username, email, city, state, latitude, longitude) VALUES
+('new_user', 'user@example.com', 'Seattle', 'WA', 47.6062, -122.3321);
 ```
 
-### Filtering
+### Adjusting Update Frequencies
+
+**Weather Producer:**
+```python
+time.sleep(60)  # Change to 300 for 5 minutes
+```
+
+**IoT Sensors:**
+```python
+time.sleep(5)  # Change to 10 for 10 seconds
+```
+
+**JDBC Connector:**
+```json
+"poll.interval.ms": "5000"  // Change to 10000 for 10 seconds
+```
+
+## 📊 ksqlDB Advanced Patterns
+
+### Windowed Aggregations
+
 ```sql
-SELECT * FROM stream
-WHERE condition = true
+-- 5-minute tumbling window
+SELECT
+    location,
+    WINDOWSTART as window_start,
+    WINDOWEND as window_end,
+    COUNT(*) as reading_count,
+    AVG(temperature_fahrenheit) as avg_temp,
+    MAX(air_quality_index) as max_aqi
+FROM iot_sensors_stream
+WINDOW TUMBLING (SIZE 5 MINUTES)
+GROUP BY location
 EMIT CHANGES;
 ```
 
-### Transformation
+### Hopping Windows
+
 ```sql
-SELECT 
-    field1,
-    field2 * 1.5 as calculated_field,
-    CASE WHEN field3 > 10 THEN 'HIGH' ELSE 'LOW' END as category
-FROM stream;
+-- 10-minute window, advance every 5 minutes
+SELECT
+    city,
+    WINDOWSTART,
+    AVG(temperature_f) as avg_forecast_temp
+FROM weather_stream
+WINDOW HOPPING (SIZE 10 MINUTES, ADVANCE BY 5 MINUTES)
+GROUP BY city
+EMIT CHANGES;
 ```
 
-### Enrichment (Join)
+### Session Windows
+
 ```sql
-SELECT s.*, t.additional_info
-FROM stream s
-INNER JOIN table t ON s.key = t.key;
+-- Group sensor readings with 30-second inactivity gap
+SELECT
+    sensor_id,
+    WINDOWSTART,
+    WINDOWEND,
+    COUNT(*) as readings_in_session
+FROM iot_sensors_stream
+WINDOW SESSION (30 SECONDS)
+GROUP BY sensor_id
+EMIT CHANGES;
 ```
 
-## Stateless vs Stateful Processing
+## 🔍 Monitoring & Debugging
 
-### Stateless (This Tutorial)
-- **No aggregation** - Process each event independently
-- **Operations**: filter, map, select, join
-- **Memory**: Minimal (no state storage)
-- **Examples**: 
-  - Filter hot sensors
-  - Convert temperature units
-  - Enrich with user info
+### Check Kafka Consumer Groups
 
-### Stateful (Advanced, not covered)
-- **Aggregation** - Group and summarize events
-- **Operations**: GROUP BY, windows, COUNT, AVG, SUM
-- **Memory**: Stores intermediate state
-- **Examples**:
-  - Average temperature per hour
-  - Count events per location
-  - Session windows
-
-## Troubleshooting Guide
-
-### Issue: Connector won't start
-
-**Symptoms**: Status shows "FAILED"
-
-**Solution**:
 ```bash
-# Check logs
-docker logs kafka-connect
+docker exec kafka kafka-consumer-groups \
+  --bootstrap-server localhost:9092 \
+  --list
 
-# Common issues:
-# 1. Wrong credentials
-# 2. Network connectivity
-# 3. Invalid JSON config
-
-# Fix config and restart
-curl -X POST http://localhost:8083/connectors/NAME/restart
+docker exec kafka kafka-consumer-groups \
+  --bootstrap-server localhost:9092 \
+  --describe --group connect-cluster
 ```
 
-### Issue: No data in ksqlDB
+### View Connector Tasks
 
-**Symptoms**: SELECT returns empty
-
-**Solutions**:
-```sql
--- Check if topic exists
-SHOW TOPICS;
-
--- Check if data in topic
-PRINT 'topic-name' FROM BEGINNING;
-
--- Verify offset setting
-SET 'auto.offset.reset' = 'earliest';
-```
-
-### Issue: Join returns no results
-
-**Common causes**:
-1. Keys don't match (case sensitive!)
-2. Table hasn't been populated yet
-3. Wrong join type (try LEFT JOIN)
-
-**Debug**:
-```sql
--- Check both sides independently
-SELECT * FROM stream EMIT CHANGES LIMIT 5;
-SELECT * FROM table LIMIT 5;
-
--- Verify join key exists
-SELECT key_field FROM stream EMIT CHANGES LIMIT 10;
-```
-
-### Issue: Python simulator crashes
-
-**Check**:
 ```bash
-# Verify Kafka is accessible
-nc -zv localhost 9092
-
-# Check Python dependencies
-pip3 list | grep confluent-kafka
-
-# Run with debugging
-python3 producers/iot_sensor_simulator.py 2>&1 | tee simulator.log
+curl http://localhost:8083/connectors/postgres-users-source/tasks
 ```
 
-## Performance Tips
+### Monitor ksqlDB Queries
 
-### 1. Connector Tuning
-```json
-{
-  "tasks.max": "3",           // Parallel tasks
-  "poll.interval.ms": "5000", // Polling frequency
-  "batch.size": "100"         // Records per batch
+```sql
+-- List all queries
+SHOW QUERIES;
+
+-- Describe a specific query
+DESCRIBE EXTENDED user_local_sensors;
+
+-- Terminate a query
+TERMINATE query_id;
+```
+
+### View Topic Offsets
+
+```bash
+docker exec kafka kafka-run-class kafka.tools.GetOffsetShell \
+  --broker-list localhost:9092 \
+  --topic weather-data
+```
+
+## 🚀 Performance Tuning
+
+### Producer Optimization
+
+```python
+conf = {
+    'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS,
+    'client.id': 'producer-id',
+    'batch.size': 16384,              # Increase batch size
+    'linger.ms': 10,                  # Wait 10ms to batch
+    'compression.type': 'snappy',     # Enable compression
+    'acks': 1                         # Trade durability for speed
 }
 ```
 
-### 2. ksqlDB Optimization
+### Kafka Connect Performance
+
+```json
+{
+  "tasks.max": "3",                    // Parallel tasks
+  "batch.max.rows": "1000",           // Batch size
+  "poll.interval.ms": "1000"          // Poll frequency
+}
+```
+
+### ksqlDB Performance
+
 ```sql
--- Limit results for testing
-SELECT * FROM stream EMIT CHANGES LIMIT 10;
+-- Increase processing threads
+SET 'ksql.streams.num.stream.threads' = '4';
 
--- Use specific columns
-SELECT col1, col2 FROM stream;  -- Not SELECT *
-
--- Filter early
-WHERE condition  -- Before joins when possible
+-- Increase cache size
+SET 'ksql.streams.cache.max.bytes.buffering' = '10485760';
 ```
 
-### 3. Topic Configuration
+## 🔒 Security Considerations
+
+### Production Deployment Checklist
+
+- [ ] Enable SASL/SSL for Kafka
+- [ ] Use Schema Registry with authentication
+- [ ] Encrypt database passwords in connectors
+- [ ] Implement API rate limiting for weather API
+- [ ] Use Kafka ACLs for topic access control
+- [ ] Enable ksqlDB authentication
+- [ ] Monitor and alert on connector failures
+- [ ] Implement backup and disaster recovery
+
+### Example SASL Configuration
+
+```yaml
+environment:
+  KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+  KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+  KAFKA_SECURITY_INTER_BROKER_PROTOCOL: SASL_SSL
+```
+
+## 📈 Scaling Considerations
+
+### Horizontal Scaling
+
+**Kafka Brokers:**
+```yaml
+kafka-1:
+  # ... config
+kafka-2:
+  # ... config
+kafka-3:
+  # ... config
+```
+
+**Kafka Connect Workers:**
+```yaml
+kafka-connect-1:
+  environment:
+    CONNECT_GROUP_ID: connect-cluster
+kafka-connect-2:
+  environment:
+    CONNECT_GROUP_ID: connect-cluster
+```
+
+### Topic Partitioning
+
 ```bash
-# Increase partitions for parallelism
-kafka-topics --alter --topic my-topic --partitions 3 --bootstrap-server localhost:9092
-
-# Set retention
-kafka-configs --alter --topic my-topic \
-  --add-config retention.ms=86400000 \
-  --bootstrap-server localhost:9092
+# Create topic with multiple partitions
+docker exec kafka kafka-topics \
+  --bootstrap-server localhost:9092 \
+  --create \
+  --topic weather-data \
+  --partitions 3 \
+  --replication-factor 1
 ```
 
-## Extending the Tutorial
+## 🐛 Common Issues & Solutions
 
-### Add More Data Sources
+### Issue: Connector Fails to Start
 
-1. **Twitter API** - Social media mentions
-2. **Stock Prices** - Financial data streams
-3. **Traffic APIs** - Real-time traffic data
-4. **MongoDB** - NoSQL database connector
+**Solution:**
+```bash
+# Check Kafka Connect logs
+docker logs kafka-connect
 
-### Advanced Processing
+# Verify PostgreSQL is accessible
+docker exec kafka-connect nc -zv postgres 5432
 
-1. **Windowed Aggregations**
-   ```sql
-   SELECT location, AVG(temperature_celsius)
-   FROM iot_sensors_stream
-   WINDOW TUMBLING (SIZE 1 HOUR)
-   GROUP BY location;
-   ```
+# Restart connector
+curl -X POST http://localhost:8083/connectors/postgres-users-source/restart
+```
 
-2. **Complex Joins**
-   ```sql
-   -- Three-way join
-   SELECT u.*, s.*, w.*
-   FROM users_table u
-   JOIN iot_sensors_stream s ON u.city = s.location
-   LEFT JOIN weather_stream w ON u.city = w.city;
-   ```
+### Issue: ksqlDB Query Not Processing Data
 
-3. **User-Defined Functions (UDFs)**
-   - Write custom Java functions
-   - Complex calculations
-   - External API calls
+**Solution:**
+```sql
+-- Check stream is created
+SHOW STREAMS;
 
-## Real-World Use Cases
+-- Verify data in topic
+PRINT 'weather-data' FROM BEGINNING LIMIT 5;
 
-### IoT Monitoring
-- Device health monitoring
-- Predictive maintenance
-- Real-time alerting
+-- Check for errors
+DESCRIBE EXTENDED weather_stream;
+```
 
-### E-commerce
-- Inventory updates
-- Order processing
-- Fraud detection
+### Issue: Python Producer Not Connecting
 
-### Finance
-- Market data analysis
-- Risk calculations
-- Compliance monitoring
+**Solution:**
+```bash
+# Test Kafka connectivity
+telnet localhost 9092
 
-### Smart Cities
-- Traffic management
-- Environmental monitoring
-- Energy optimization
+# Check producer logs
+python3 producers/nws_weather_producer.py 2>&1 | tee debug.log
 
-## Additional Resources
+# Verify topic exists
+docker exec kafka kafka-topics --bootstrap-server localhost:9092 --list
+```
 
-- [ksqlDB Documentation](https://docs.ksqldb.io/)
+## 📚 Additional Resources
+
+- [NWS API Documentation](https://www.weather.gov/documentation/services-web-api)
+- [ksqlDB Reference](https://docs.ksqldb.io/)
 - [Kafka Connect Guide](https://docs.confluent.io/platform/current/connect/)
-- [Stream Processing Patterns](https://www.confluent.io/blog/streaming-design-patterns/)
-- [Open-Meteo API](https://open-meteo.com/en/docs)
+- [Confluent Kafka Python](https://docs.confluent.io/kafka-clients/python/)
 
-## Learning Path
+## 🎓 Learning Exercises
 
-1. ✅ Complete this tutorial
-2. Modify queries to add new transformations
-3. Add aggregation queries with windows
-4. Create your own data source
-5. Build a complete streaming application
-6. Deploy to production (Docker Swarm/Kubernetes)
+1. **Add Windowed Aggregations**: Calculate hourly averages
+2. **Implement Change Data Capture**: Track user table changes
+3. **Create Multiple Joins**: Combine 4+ streams
+4. **Add Error Handling**: Dead letter queues for failed messages
+5. **Build Visualization**: Connect to Grafana or custom dashboard
+6. **Implement Exactly-Once**: Configure for zero data loss
+7. **Add Schema Registry**: Use Avro serialization
+8. **Create UDFs**: Custom ksqlDB functions in Java
+
+## 💡 Best Practices
+
+1. **Always use meaningful keys** for better partitioning
+2. **Set appropriate retention** on topics
+3. **Monitor consumer lag** in production
+4. **Use Schema Registry** for production deployments
+5. **Implement proper error handling** in producers
+6. **Test with realistic data volumes** before production
+7. **Document your stream processing logic**
+8. **Use version control** for ksqlDB queries
