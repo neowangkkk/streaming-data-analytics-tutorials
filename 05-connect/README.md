@@ -2,14 +2,14 @@
 
 A complete, hands-on tutorial demonstrating how to connect three different data sources to Kafka and process them with ksqlDB.
 
-## 📋 What You'll Build
+## What You'll Build
 
 A real-time environmental monitoring system that combines:
 1. **Weather API** - Real weather data from Open-Meteo API
 2. **IoT Sensors** - Simulated sensor data (temperature, humidity, pressure)
 3. **User Database** - PostgreSQL table with user location preferences
 
-## 🎯 Architecture
+## Architecture
 
 ```
 ┌──────────────────┐
@@ -30,7 +30,7 @@ A real-time environmental monitoring system that combines:
                                         └──────────────┘
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # 1. Navigate to tutorial directory
@@ -54,7 +54,7 @@ curl -X POST http://localhost:8083/connectors -H "Content-Type: application/json
 docker exec -it ksqldb-cli ksql http://ksqldb-server:8088
 ```
 
-## 📊 What You'll Learn
+## What You'll Learn
 
 - HTTP Source Connector for REST APIs
 - JDBC Source Connector for databases
@@ -62,11 +62,11 @@ docker exec -it ksqldb-cli ksql http://ksqldb-server:8088
 - ksqlDB stream creation
 - Stateless transformations and joins
 
-## 💡 Use Case
+## Use Case
 
 Match users with environmental data from their location in real-time.
 
-## 📦 Requirements
+## Requirements
 
 - Docker & Docker Compose
 - Python 3.8+
