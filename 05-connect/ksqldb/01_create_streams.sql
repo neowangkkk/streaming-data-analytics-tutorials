@@ -1,6 +1,5 @@
 -- ========================================
 -- ksqlDB Stream and Table Definitions
--- CORRECTED VERSION
 -- ========================================
 
 SET 'auto.offset.reset' = 'earliest';
