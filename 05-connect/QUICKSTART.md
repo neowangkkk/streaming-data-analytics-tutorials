@@ -1,7 +1,7 @@
 # QUICKSTART GUIDE - UPDATED
 Complete step-by-step walkthrough for the Multi-Source Data Integration Tutorial
 
-## ⚡ Prerequisites
+## Prerequisites
 
 - Docker & Docker Compose installed
 - Python 3.8+ installed
@@ -10,7 +10,7 @@ Complete step-by-step walkthrough for the Multi-Source Data Integration Tutorial
 
 ---
 
-## 📦 Step 1: Start Infrastructure
+## Step 1: Start Infrastructure
 
 ```bash
 # Navigate to tutorial directory
@@ -33,7 +33,7 @@ docker-compose -f docker/docker-compose.yml ps
 
 ---
 
-## 🗄️ Step 2: Initialize PostgreSQL Database
+## Step 2: Initialize PostgreSQL Database
 
 Load sample user data:
 
@@ -52,7 +52,7 @@ docker exec -it postgres psql -U envuser -d envdb -c \
 
 ---
 
-## 🐍 Step 3: Install Python Dependencies
+## Step 3: Install Python Dependencies
 
 ```bash
 pip3 install -r producers/requirements.txt
@@ -60,7 +60,7 @@ pip3 install -r producers/requirements.txt
 
 ---
 
-## 🌦️ Step 4: Start Data Producers
+## Step 4: Start Data Producers
 
 ### Terminal 1: NWS Weather Producer
 
@@ -104,7 +104,7 @@ python3 producers/iot_sensor_simulator.py
 
 ---
 
-### 💡 Or Run Both in Background
+### Or Run Both in Background
 
 ```bash
 python3 producers/nws_weather_producer.py > weather.log 2>&1 &
@@ -117,7 +117,7 @@ tail -f iot.log
 
 ---
 
-## 🔌 Step 5: Create JDBC Source Connector
+## Step 5: Create JDBC Source Connector
 
 **IMPORTANT:** Use **bulk mode** to ensure all existing users are loaded:
 
@@ -154,7 +154,7 @@ curl http://localhost:8083/connectors/postgres-users-source/status | jq
 
 ---
 
-## ✅ Step 6: Verify Kafka Topics & Data
+## Step 6: Verify Kafka Topics & Data
 
 ### Check Topics Exist
 
@@ -209,7 +209,7 @@ docker exec kafka kafka-console-consumer \
 
 ---
 
-## 🎯 Step 7: Create ksqlDB Streams & Tables
+## Step 7: Create ksqlDB Streams & Tables
 
 Access ksqlDB CLI:
 
@@ -428,7 +428,7 @@ More queries available in `ksqldb/02_queries.sql`!
 
 ---
 
-## 🛠️ Troubleshooting
+## Troubleshooting
 
 ### Issue: `postgres-users` Topic is Empty
 
@@ -537,7 +537,7 @@ docker-compose -f docker/docker-compose.yml down -v
 
 ---
 
-## 🎓 What You've Accomplished
+## What You've Accomplished
 
 ✅ Set up complete streaming infrastructure (Kafka, Connect, ksqlDB, PostgreSQL)  
 ✅ Integrated 3 data sources with matching cities  
@@ -547,7 +547,7 @@ docker-compose -f docker/docker-compose.yml down -v
 ✅ Performed stream-table joins on city  
 ✅ Created real-time environmental monitoring dashboard  
 
-## 🚀 Next Steps
+## Next Steps
 
 1. Explore more queries in `ksqldb/02_queries.sql`
 2. Add new cities to all three data sources
@@ -555,4 +555,4 @@ docker-compose -f docker/docker-compose.yml down -v
 4. Build a visualization dashboard (Grafana)
 5. Export processed streams to external systems
 
-**Congratulations!** 🎉 You've built a complete multi-source streaming data pipeline!
+**Congratulations!** You've built a complete multi-source streaming data pipeline!
