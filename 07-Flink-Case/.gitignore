@@ -1,0 +1,21 @@
+# Virtual environments
+.venv/
+flink-env/
+
+# Python version pin
+.python-version
+
+# Generated data files
+data/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Mac system files
+.DS_Store
+
+# IDE
+.idea/
+.vscode/

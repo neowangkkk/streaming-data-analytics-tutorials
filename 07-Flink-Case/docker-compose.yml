@@ -1,0 +1,79 @@
+version: "3.8"
+
+# =============================================================================
+# Docker Compose — Fraud Detection Tutorial
+# =============================================================================
+# Spins up:
+#   - Flink JobManager (master)
+#   - Flink TaskManager (worker)
+#
+# Usage:
+#   docker-compose up -d          # start cluster
+#   docker-compose logs -f        # tail logs
+#   docker-compose down           # stop cluster
+#
+# Flink Web UI:  http://localhost:8081
+# =============================================================================
+
+services:
+
+  jobmanager:
+    image: flink:2.0.0-scala_2.12
+    container_name: flink-jobmanager
+    ports:
+      - "8081:8081"   # Web UI
+      - "6123:6123"   # RPC
+    command: jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        parallelism.default: 2
+    volumes:
+      - ./config/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
+      - flink-checkpoints:/tmp/flink-checkpoints
+      - flink-savepoints:/tmp/flink-savepoints
+      - ./src:/opt/flink/usrlib          # makes your Python scripts visible
+    networks:
+      - flink-net
+
+  taskmanager:
+    image: flink:2.0.0-scala_2.12
+    container_name: flink-taskmanager
+    depends_on:
+      - jobmanager
+    command: taskmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 4
+        parallelism.default: 2
+    volumes:
+      - ./config/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
+      - flink-checkpoints:/tmp/flink-checkpoints
+      - ./src:/opt/flink/usrlib
+    networks:
+      - flink-net
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  # Optional: Prometheus for metrics
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+  #   networks:
+  #     - flink-net
+
+volumes:
+  flink-checkpoints:
+  flink-savepoints:
+
+networks:
+  flink-net:
+    driver: bridge
