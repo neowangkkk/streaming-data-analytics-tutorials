@@ -1,0 +1,172 @@
+# docker-compose.yml -- Kafka + Flink Fraud Detection Tutorial
+# =============================================================
+#
+# Services
+# --------
+#   kafka          Apache Kafka 3.7 in KRaft mode (no Zookeeper)
+#   init-kafka     One-shot container that creates the required topics
+#   jobmanager     Flink JobManager (cluster coordinator)
+#   taskmanager    Flink TaskManager (executes operators)
+#   detector       Submits the PyFlink fraud detection job to the cluster
+#   generator      Publishes simulated transactions to Kafka
+#   dashboard      Consumes fraud-alerts from Kafka, serves live web UI
+#
+# Usage
+# -----
+#   docker-compose up --build          start everything
+#   docker-compose down                stop and remove containers
+#   docker-compose logs -f detector    follow detector logs
+#   http://localhost:8050              live fraud dashboard
+#   http://localhost:8081              Flink Web UI
+# =============================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Kafka (KRaft mode -- no Zookeeper required)
+  # ---------------------------------------------------------------------------
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_RETENTION_HOURS: 2
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      CLUSTER_ID: "fraud-detection-cluster-01"
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD", "/opt/kafka/bin/kafka-broker-api-versions.sh",
+             "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ---------------------------------------------------------------------------
+  # Topic initialiser (runs once, then exits)
+  # ---------------------------------------------------------------------------
+  init-kafka:
+    image: apache/kafka:3.7.0
+    container_name: init-kafka
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint:
+      - /bin/bash
+      - -c
+      - >-
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic transactions --partitions 4 --replication-factor 1 &&
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic fraud-alerts --partitions 1 --replication-factor 1 &&
+        echo "Topics created."
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Flink JobManager
+  # ---------------------------------------------------------------------------
+  jobmanager:
+    build:
+      context: .
+      dockerfile: Dockerfile.flink
+    container_name: jobmanager
+    command: jobmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        jobmanager.memory.process.size: 1600m
+        taskmanager.memory.process.size: 1728m
+        parallelism.default: 1
+    ports:
+      - "8081:8081"    # Flink Web UI
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/overview"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ---------------------------------------------------------------------------
+  # Flink TaskManager
+  # ---------------------------------------------------------------------------
+  taskmanager:
+    build:
+      context: .
+      dockerfile: Dockerfile.flink
+    container_name: taskmanager
+    command: taskmanager
+    depends_on:
+      jobmanager:
+        condition: service_healthy
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        taskmanager.memory.process.size: 1728m
+        taskmanager.numberOfTaskSlots: 4
+
+  # ---------------------------------------------------------------------------
+  # Fraud Detector (submits PyFlink job to the Flink cluster)
+  # ---------------------------------------------------------------------------
+  detector:
+    build:
+      context: .
+      dockerfile: Dockerfile.flink
+    container_name: detector
+    depends_on:
+      jobmanager:
+        condition: service_healthy
+      taskmanager:
+        condition: service_started
+      init-kafka:
+        condition: service_completed_successfully
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+    volumes:
+      - ./src:/app/src
+    entrypoint:
+      - /bin/bash
+      - -c
+      - >-
+        echo "Waiting for Flink cluster to be ready..." &&
+        sleep 5 &&
+        echo "Submitting fraud detection job..." &&
+        /opt/flink/bin/flink run --jobmanager jobmanager:8081 --python /app/src/fraud_detector.py --pyFiles /app/src
+
+  # ---------------------------------------------------------------------------
+  # Transaction Generator
+  # ---------------------------------------------------------------------------
+  generator:
+    build:
+      context: .
+      dockerfile: Dockerfile.generator
+    container_name: generator
+    depends_on:
+      init-kafka:
+        condition: service_completed_successfully
+    volumes:
+      - ./src:/app/src
+    command: python /app/src/data_generator.py
+
+  # ---------------------------------------------------------------------------
+  # Live Dashboard
+  # ---------------------------------------------------------------------------
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    container_name: dashboard
+    depends_on:
+      init-kafka:
+        condition: service_completed_successfully
+    volumes:
+      - ./dashboard:/app/dashboard
+    ports:
+      - "8050:8050"
+    command: python /app/dashboard/server.py

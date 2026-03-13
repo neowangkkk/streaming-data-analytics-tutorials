@@ -1,0 +1,65 @@
+# Dockerfile.flink -- Flink 1.18 + Python 3.11 + Kafka connector
+# ---------------------------------------------------------------
+# Used by: jobmanager, taskmanager, detector
+#
+# The flink:1.18 base image ships a JRE only. pemja (PyFlink's Java bridge)
+# needs JDK headers (include/jni.h) to compile from source. We install
+# openjdk-11-jdk and point JAVA_HOME at it before running pip install.
+
+FROM flink:1.18.1-scala_2.12-java11
+
+# -- Install Python 3.11 and JDK headers --------------------------------------
+RUN apt-get update && apt-get install -y \
+    python3.11 python3.11-dev python3-pip \
+    openjdk-11-jdk \
+    build-essential gcc curl wget \
+    && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 \
+    && update-alternatives --install /usr/bin/pip    pip    /usr/bin/pip3       1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# -- Point JAVA_HOME at the JDK (not the JRE shipped with the base image) -----
+# pemja's build script looks for $JAVA_HOME/include/jni.h.
+# openjdk-11-jdk installs to /usr/lib/jvm/java-11-openjdk-<arch>.
+# We detect the path dynamically so this works on both arm64 and amd64.
+RUN export JDK=$(dirname $(dirname $(readlink -f $(which javac)))) && \
+    echo "Detected JDK: $JDK" && \
+    echo "JAVA_HOME=$JDK" >> /etc/environment
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-arm64
+ENV PATH=$JAVA_HOME/bin:$PATH
+
+# -- Verify headers exist before pip install ----------------------------------
+RUN test -f $JAVA_HOME/include/jni.h || \
+    export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which javac)))) && \
+    echo "JAVA_HOME=$JAVA_HOME" && \
+    test -f $JAVA_HOME/include/jni.h && \
+    echo "jni.h found"
+
+# -- Download Kafka connector JAR + Kafka client JAR --------------------------
+# flink-connector-kafka does NOT bundle kafka-clients.
+# Both must be on the Flink classpath or you get NoClassDefFoundError
+# (OffsetResetStrategy, KafkaConsumer, etc. are all in kafka-clients).
+RUN wget -q -P /opt/flink/lib/ \
+    https://repo1.maven.org/maven2/org/apache/flink/flink-connector-kafka/3.1.0-1.18/flink-connector-kafka-3.1.0-1.18.jar && \
+    wget -q -P /opt/flink/lib/ \
+    https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/3.4.0/kafka-clients-3.4.0.jar
+
+# -- Install PyFlink 1.18 -----------------------------------------------------
+# pemja==0.3.0 pins numpy==1.21.4 in its build-system requirements, which has
+# no arm64 wheel for Python 3.11. We pre-install a compatible numpy and pass
+# --no-build-isolation so pip uses the already-installed numpy instead of
+# trying to fetch the pinned version.
+# protobuf must also be installed first -- PyFlink imports google.protobuf
+# internally (flink_fn_execution_pb2) before any user code runs.
+RUN export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which javac)))) && \
+    echo "Installing PyFlink with JAVA_HOME=$JAVA_HOME" && \
+    python3.11 -m pip install "protobuf>=3.20,<5" && \
+    python3.11 -m pip install "numpy>=1.22" && \
+    python3.11 -m pip install "setuptools>=59" wheel && \
+    python3.11 -m pip install apache-flink==1.18.1 --no-build-isolation
+
+# Tell Flink which Python executable to use for the worker process
+ENV PYFLINK_PYTHON=/usr/bin/python3.11
+
+# -- App directory ------------------------------------------------------------
+RUN mkdir -p /app/src
+WORKDIR /app

@@ -1,0 +1,11 @@
+# Dockerfile.dashboard -- Live fraud dashboard server
+# ----------------------------------------------------
+# Lightweight Python 3.11 image with Flask and kafka-python.
+# Consumes fraud-alerts from Kafka and serves the live web UI.
+
+FROM python:3.11-slim-bookworm
+
+RUN pip install flask==3.0.3 kafka-python==2.0.2
+
+RUN mkdir -p /app/dashboard
+WORKDIR /app

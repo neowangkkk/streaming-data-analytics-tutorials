@@ -1,0 +1,11 @@
+# Dockerfile.generator -- Transaction data generator
+# ---------------------------------------------------
+# Lightweight Python 3.11 image with only kafka-python.
+# No Java or Flink needed -- just publishes JSON to Kafka.
+
+FROM python:3.11-slim-bookworm
+
+RUN pip install kafka-python==2.0.2
+
+RUN mkdir -p /app/src
+WORKDIR /app

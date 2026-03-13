@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fraud Detection Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:         #0f1117;
+    --card:       #1a1d2e;
+    --card2:      #1e2235;
+    --red:        #ff4757;
+    --amber:      #ffa502;
+    --green:      #2ed573;
+    --blue:       #1e90ff;
+    --purple:     #a29bfe;
+    --text:       #eaf0fb;
+    --muted:      #8892a4;
+    --border:     #2a2f45;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px; min-height: 100vh;
+  }
+
+  /* Header */
+  header {
+    background: linear-gradient(135deg, #12152a, #1a1d35);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px; height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 16px rgba(0,0,0,.4);
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--red), #ff6b81);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header p  { font-size: 12px; color: var(--muted); }
+  .live-badge {
+    display: flex; align-items: center; gap: 7px;
+    background: rgba(46,213,115,.12);
+    border: 1px solid rgba(46,213,115,.3);
+    border-radius: 20px; padding: 5px 14px;
+    font-size: 12px; font-weight: 600; color: var(--green);
+  }
+  .live-dot {
+    width: 7px; height: 7px;
+    background: var(--green); border-radius: 50%;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50%      { opacity:.4; transform:scale(.7); }
+  }
+
+  /* Layout */
+  main { padding: 24px 28px; max-width: 1600px; margin: 0 auto; }
+
+  /* KPI cards */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px; margin-bottom: 24px;
+  }
+  .kpi-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px 22px;
+    display: flex; flex-direction: column; gap: 6px;
+    transition: transform .15s;
+  }
+  .kpi-card:hover { transform: translateY(-2px); }
+  .kpi-label { font-size: 11px; text-transform: uppercase;
+               letter-spacing: .8px; color: var(--muted); }
+  .kpi-value { font-size: 32px; font-weight: 700; line-height: 1; }
+  .kpi-sub   { font-size: 12px; color: var(--muted); }
+  .kpi-card.red    .kpi-value { color: var(--red); }
+  .kpi-card.amber  .kpi-value { color: var(--amber); }
+  .kpi-card.green  .kpi-value { color: var(--green); }
+  .kpi-card.blue   .kpi-value { color: var(--blue); }
+  .kpi-card.purple .kpi-value { color: var(--purple); }
+
+  /* Chart row */
+  .chart-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px; margin-bottom: 24px;
+  }
+  .chart-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px 22px;
+  }
+  .chart-card h2 {
+    font-size: 14px; font-weight: 600; margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .badge {
+    font-size: 11px; font-weight: 600; padding: 3px 10px;
+    border-radius: 12px;
+  }
+  .badge-blue   { background: rgba(30,144,255,.15); color: var(--blue); }
+  .badge-amber  { background: rgba(255,165,2,.15);  color: var(--amber); }
+  .chart-wrap   { position: relative; height: 220px; }
+
+  /* Bottom row */
+  .bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  /* Alert table */
+  .alert-table-wrap { overflow-y: auto; max-height: 340px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+    color: var(--muted); padding: 8px 10px; text-align: left;
+    border-bottom: 1px solid var(--border); position: sticky; top: 0;
+    background: var(--card);
+  }
+  tbody tr { border-bottom: 1px solid rgba(42,47,69,.6); }
+  tbody tr:hover { background: rgba(255,255,255,.03); }
+  tbody td { padding: 9px 10px; font-size: 13px; }
+  .rule-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 6px;
+    font-size: 11px; font-weight: 700;
+  }
+  .rule-R1 { background: rgba(255,71,87,.2);   color: var(--red); }
+  .rule-R2 { background: rgba(255,165,2,.2);   color: var(--amber); }
+  .rule-R3 { background: rgba(30,144,255,.2);  color: var(--blue); }
+  .rule-R4 { background: rgba(162,155,254,.2); color: var(--purple); }
+  .rule-R5 { background: rgba(46,213,115,.2);  color: var(--green); }
+  .risk-bar-wrap { width: 80px; height: 6px; background: var(--border);
+                   border-radius: 3px; display: inline-block; vertical-align: middle; }
+  .risk-bar      { height: 100%; border-radius: 3px;
+                   background: linear-gradient(90deg, var(--green), var(--amber), var(--red)); }
+
+  /* Customer list */
+  .customer-list { display: flex; flex-direction: column; gap: 10px;
+                   overflow-y: auto; max-height: 340px; }
+  .customer-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; background: var(--card2);
+    border-radius: 10px;
+  }
+  .customer-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; flex-shrink: 0;
+  }
+  .customer-name { font-weight: 600; font-size: 13px; }
+  .customer-sub  { font-size: 11px; color: var(--muted); }
+  .customer-score {
+    margin-left: auto; font-size: 20px; font-weight: 700;
+  }
+  .score-high   { color: var(--red); }
+  .score-medium { color: var(--amber); }
+  .score-low    { color: var(--green); }
+
+  /* Empty state */
+  .empty {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 200px;
+    color: var(--muted); font-size: 13px; gap: 8px;
+  }
+  .empty-icon { font-size: 32px; opacity: .4; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo">&#128683;</div>
+    <div>
+      <h1>Fraud Detection Dashboard</h1>
+      <p>PyFlink &middot; Apache Kafka &middot; Real-Time Stream Analytics</p>
+    </div>
+  </div>
+  <div class="live-badge">
+    <div class="live-dot"></div>
+    LIVE
+  </div>
+</header>
+
+<main>
+
+  <!-- KPI Row -->
+  <div class="kpi-grid">
+    <div class="kpi-card red">
+      <div class="kpi-label">Total Alerts</div>
+      <div class="kpi-value" id="kpi-total">0</div>
+      <div class="kpi-sub">since pipeline started</div>
+    </div>
+    <div class="kpi-card amber">
+      <div class="kpi-label">High Risk (&ge;80)</div>
+      <div class="kpi-value" id="kpi-high">0</div>
+      <div class="kpi-sub">risk score &ge; 80</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">Avg Risk Score</div>
+      <div class="kpi-value" id="kpi-avg">0</div>
+      <div class="kpi-sub">across all alerts</div>
+    </div>
+    <div class="kpi-card purple">
+      <div class="kpi-label">Customers Flagged</div>
+      <div class="kpi-value" id="kpi-customers">0</div>
+      <div class="kpi-sub">unique customer IDs</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Active Rules</div>
+      <div class="kpi-value" id="kpi-rules">0</div>
+      <div class="kpi-sub">rules triggered</div>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div class="chart-row">
+    <div class="chart-card">
+      <h2>
+        Alerts Over Time
+        <span class="badge badge-blue" id="time-label">1-min buckets &middot; last 30 min</span>
+      </h2>
+      <div class="chart-wrap">
+        <canvas id="chart-time"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h2>
+        Rule Breakdown
+        <span class="badge badge-amber">by rule ID</span>
+      </h2>
+      <div class="chart-wrap">
+        <canvas id="chart-rules"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Row -->
+  <div class="bottom-row">
+    <div class="chart-card">
+      <h2>
+        Live Fraud Alerts
+        <span class="badge badge-blue">newest first</span>
+      </h2>
+      <div class="alert-table-wrap" id="alert-table-wrap">
+        <div class="empty">
+          <div class="empty-icon">&#128683;</div>
+          Waiting for alerts from Flink...
+        </div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h2>
+        Top Flagged Customers
+        <span style="font-size:11px;color:var(--muted);font-weight:400">by max risk score</span>
+      </h2>
+      <div class="customer-list" id="customer-list">
+        <div class="empty">
+          <div class="empty-icon">&#128100;</div>
+          No customers flagged yet
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ---------------------------------------------------------------------------
+// Chart setup
+// ---------------------------------------------------------------------------
+const RULE_COLORS = {
+  R1: '#ff4757', R2: '#ffa502', R3: '#1e90ff',
+  R4: '#a29bfe', R5: '#2ed573'
+};
+const RULE_NAMES = {
+  R1: 'R1 High-Value', R2: 'R2 Velocity',
+  R3: 'R3 Aggregate',  R4: 'R4 Night Owl', R5: 'R5 Escalation'
+};
+
+// Time chart
+const ctxTime = document.getElementById('chart-time').getContext('2d');
+const timeChart = new Chart(ctxTime, {
+  type: 'line',
+  data: { labels: [], datasets: [{
+    label: 'Alerts', data: [],
+    borderColor: '#ff4757', backgroundColor: 'rgba(255,71,87,.12)',
+    borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#ff4757',
+    fill: true, tension: 0.3,
+  }]},
+  options: {
+    responsive: true, maintainAspectRatio: false, animation: false,
+    plugins: { legend: { display: false },
+               tooltip: { backgroundColor: '#1e2235', titleColor: '#eaf0fb',
+                          bodyColor: '#eaf0fb', borderColor: '#2a2f45',
+                          borderWidth: 1 } },
+    scales: {
+      x: { ticks: { color: '#8892a4', maxTicksLimit: 8, font: { size: 11 } },
+           grid: { color: 'rgba(42,47,69,.5)' } },
+      y: { beginAtZero: true, ticks: { color: '#8892a4', font: { size: 11 } },
+           grid: { color: 'rgba(42,47,69,.5)' } }
+    }
+  }
+});
+
+// Rule donut chart
+const ctxRules = document.getElementById('chart-rules').getContext('2d');
+const ruleChart = new Chart(ctxRules, {
+  type: 'doughnut',
+  data: { labels: [], datasets: [{
+    data: [], backgroundColor: [], borderColor: '#0f1117', borderWidth: 3
+  }]},
+  options: {
+    responsive: true, maintainAspectRatio: false, animation: false,
+    cutout: '62%',
+    plugins: {
+      legend: { position: 'right',
+                labels: { color: '#eaf0fb', padding: 14, font: { size: 12 } } },
+      tooltip: { backgroundColor: '#1e2235', titleColor: '#eaf0fb',
+                 bodyColor: '#eaf0fb', borderColor: '#2a2f45', borderWidth: 1 }
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Render helpers
+// ---------------------------------------------------------------------------
+function renderTable(alerts) {
+  const wrap = document.getElementById('alert-table-wrap');
+  if (!alerts.length) {
+    wrap.innerHTML = `<div class="empty"><div class="empty-icon">&#128683;</div>Waiting for alerts from Flink...</div>`;
+    return;
+  }
+  const rows = alerts.map(a => {
+    const risk   = Math.round(a.risk_score || 0);
+    const time   = new Date(a.alert_time || a.event_time || Date.now())
+                     .toLocaleTimeString();
+    const amount = `$${(a.amount||0).toFixed(2)}`;
+    return `<tr>
+      <td><strong>${a.customer_id}</strong></td>
+      <td><span class="rule-badge rule-${a.rule_id}">${a.rule_id}</span></td>
+      <td>${amount}</td>
+      <td>
+        <span class="risk-bar-wrap">
+          <span class="risk-bar" style="width:${risk}%"></span>
+        </span>
+        <span style="margin-left:6px;font-weight:600">${risk}</span>
+      </td>
+      <td style="color:var(--muted)">${time}</td>
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `<table>
+    <thead><tr>
+      <th>Customer</th><th>Rule</th><th>Amount</th><th>Risk</th><th>Time</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function renderCustomers(customers) {
+  const list = document.getElementById('customer-list');
+  if (!customers.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">&#128100;</div>No customers flagged yet</div>`;
+    return;
+  }
+  list.innerHTML = customers.map(c => {
+    const cls = c.max_risk >= 80 ? 'score-high'
+              : c.max_risk >= 50 ? 'score-medium' : 'score-low';
+    const initials = c.customer_id.replace('C', '');
+    return `<div class="customer-row">
+      <div class="customer-avatar">${initials}</div>
+      <div>
+        <div class="customer-name">${c.customer_id}</div>
+        <div class="customer-sub">${c.alert_count} alerts &middot; avg ${c.avg_risk}</div>
+      </div>
+      <div class="customer-score ${cls}">${c.max_risk}</div>
+    </div>`;
+  }).join('');
+}
+
+// ---------------------------------------------------------------------------
+// Poll loop
+// ---------------------------------------------------------------------------
+async function refresh() {
+  try {
+    const [statsRes, alertsRes] = await Promise.all([
+      fetch('/api/stats'), fetch('/api/alerts')
+    ]);
+    const stats  = await statsRes.json();
+    const alerts = await alertsRes.json();
+
+    // KPIs
+    document.getElementById('kpi-total').textContent     = stats.total_alerts;
+    document.getElementById('kpi-high').textContent      = stats.high_risk_count;
+    document.getElementById('kpi-avg').textContent       = stats.avg_risk_score;
+    document.getElementById('kpi-customers').textContent = stats.top_customers.length;
+    document.getElementById('kpi-rules').textContent     =
+      Object.keys(stats.alerts_by_rule).length;
+
+    // Time chart
+    const aot = stats.alerts_over_time || [];
+    timeChart.data.labels   = aot.map(b => b.time);
+    timeChart.data.datasets[0].data = aot.map(b => b.count);
+    timeChart.update();
+
+    // Rule chart
+    const ruleEntries = Object.entries(stats.alerts_by_rule || {});
+    ruleChart.data.labels = ruleEntries.map(([k]) => RULE_NAMES[k] || k);
+    ruleChart.data.datasets[0].data = ruleEntries.map(([,v]) => v);
+    ruleChart.data.datasets[0].backgroundColor =
+      ruleEntries.map(([k]) => RULE_COLORS[k] || '#8892a4');
+    ruleChart.update();
+
+    // Table and customers
+    renderTable(alerts);
+    renderCustomers(stats.top_customers || []);
+
+  } catch (e) {
+    console.warn('Dashboard refresh error:', e);
+  }
+}
+
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>
